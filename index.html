@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <!-- FIREBASE SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
+  
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Coaching Tools Login</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; font-family: system-ui, -apple-system, sans-serif; 
+      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%); 
+      color: white; min-height: 100vh; 
+      display: flex; flex-direction: column; align-items: center; justify-content: center; 
+      gap: 20px; padding: 20px;
+    }
+    h1 { font: 700 32px/1.1 system-ui; margin: 0 0 8px; letter-spacing: -0.02em; }
+    .subtitle { font: 500 16px/1.4 system-ui; opacity: 0.9; margin: 0 0 24px; text-align: center; }
+    #sessionId { 
+      padding: 14px 20px; font: 18px system-ui; border: 1px solid rgba(255,255,255,0.3); 
+      border-radius: 12px; background: rgba(255,255,255,0.15); color: white; 
+      width: 100%; max-width: 360px; outline: none; backdrop-filter: blur(10px);
+    }
+    #sessionId::placeholder { color: rgba(255,255,255,0.6); }
+    #sessionId:focus { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.2); }
+    .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn { 
+      padding: 12px 24px; font: 600 16px system-ui; border-radius: 12px; cursor: pointer; 
+      border: none; transition: all 0.2s ease; min-width: 120px;
+    }
+    .btn.primary { background: white; color: #111827; }
+    .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(255,255,255,0.3); }
+    .btn.secondary { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); }
+    .btn.secondary:hover { background: rgba(255,255,255,0.15); }
+    .status { font: 500 14px system-ui; opacity: 0.8; margin-top: 12px; min-height: 20px; }
+    @media (max-width: 480px) { .buttons { flex-direction: column; width: 100%; max-width: 360px; } }
+  </style>
+</head>
+<body>
+  <h1>Coaching Tools</h1>
+  <p class="subtitle">Zadej email kouče pro připojení</p>
+  
+  <input id="sessionId" placeholder="email (jan@novak.cz)" autofocus>
+  
+  <div class="buttons">
+    <button class="btn primary" onclick="joinSession()">Připojit</button>
+  </div>
+  
+  <div id="status" class="status"></div>
+
+  <script>
+    // Firebase config (z tvého main souboru)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBhaXrziP8OmQcCCGTTEqHGfUvHg1z74XI",
+      authDomain: "coachingtools-f6f34.firebaseapp.com",
+      databaseURL: "https://coachingtools-f6f34-default-rtdb.europe-west1.firebasedatabase.app/",
+      projectId: "coachingtools-f6f34",
+      storageBucket: "coachingtools-f6f34.appspot.com",
+      messagingSenderId: "676417091612",
+      appId: "1:676417091612:web:302be7064ec9f78d8407d9"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    const statusEl = document.getElementById('status');
+    const sessionIdEl = document.getElementById('sessionId');
+    
+    // Status update
+    function updateStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.style.color = isError ? '#fed7d7' : 'rgba(255,255,255,0.9)';
+    }
+    
+    // Připojit se k session
+async function joinSession() {
+  const id = sessionIdEl.value.trim();
+  if (!id) { 
+    sessionIdEl.focus(); 
+    updateStatus('Zadej ID session', true); 
+    return; 
+  }
+  
+  updateStatus('Kontroluji session...');
+  
+  try {
+    const snapshot = await db.ref(`sessions/${id}`).once('value');
+    const exists = snapshot.exists();
+    
+    updateStatus(exists ? `✅ Session "${id}" nalezena!` : `ℹ️ Nová session "${id}" vytvořena.`);
+    
+    // Ulož session ID do localStorage (přetrvá i po refreshi)
+    localStorage.setItem('coachingSessionId', id);
+    
+    // Otevřít main app (bez ?session v URL, protože už je v localStorage)
+    setTimeout(() => {
+  window.location.href = 'coaching-tools-vA4.html';
+}, 800);
+    
+  } catch (e) {
+    updateStatus('Chyba připojení: ' + e.message, true);
+  }
+}
+    
+    // Vytvořit novou session
+    function newSession() {
+      const id = 'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
+      sessionIdEl.value = id;
+      joinSession();
+    }
+    
+    // Enter klávesa
+    sessionIdEl.addEventListener('keypress', e => {
+      if (e.key === 'Enter') joinSession();
+    });
+    
+    // Inicializace
+    sessionIdEl.focus();
+    updateStatus('Zadej ID a stiskni Enter nebo klikni Připojit');
+  </script>
+</body>
+</html>
