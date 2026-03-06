@@ -77,7 +77,8 @@
     
     // Připojit se k session
 async function joinSession() {
-  const id = sessionIdEl.value.trim();
+  const rawEmail = sessionIdEl.value.trim().toLowerCase();
+const id = rawEmail.replace(/\./g, ",");
   if (!id) { 
     sessionIdEl.focus(); 
     updateStatus('Zadej ID session', true); 
