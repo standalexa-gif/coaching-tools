@@ -1,58 +1,439 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <!-- FIREBASE SDK -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Coaching Tools</title>
+
+  <!-- Favicon / logo v kartě -->
+  <link
+    rel="icon"
+    href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjBhNWZhIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2E3OGJmYSIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxMTE4MjciLz4KICA8Y2lyY2xlIGN4PSIyOCIgY3k9IjI4IiByPSIxOCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjM4IiB5PSIzOCIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iNSIgZmlsbD0iI2ZmZmZmZiIvPgogIDxwYXRoIGQ9Ik00MSA0NyBsNCA1IGw4IC0xMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMmEyZjNhIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4="
+  />
+
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
-  
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Coaching Tools Login</title>
+
   <style>
-    * { box-sizing: border-box; }
-    body { 
-      margin: 0; font-family: system-ui, -apple-system, sans-serif; 
-      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%); 
-      color: white; min-height: 100vh; 
-      display: flex; flex-direction: column; align-items: center; justify-content: center; 
-      gap: 20px; padding: 20px;
+    :root{
+      --bg:#0f172a;
+      --panel:#111827;
+      --text:#e5e7eb;
+      --muted:#9aa4b2;
+      --border:#1f2937;
+      --accent:#60a5fa;
+      --accent2:#a78bfa;
+      --danger:#e74c3c;
     }
-    h1 { font: 700 32px/1.1 system-ui; margin: 0 0 8px; letter-spacing: -0.02em; }
-    .subtitle { font: 500 16px/1.4 system-ui; opacity: 0.9; margin: 0 0 24px; text-align: center; }
-    #sessionId { 
-      padding: 14px 20px; font: 18px system-ui; border: 1px solid rgba(255,255,255,0.3); 
-      border-radius: 12px; background: rgba(255,255,255,0.15); color: white; 
-      width: 100%; max-width: 360px; outline: none; backdrop-filter: blur(10px);
+
+    *{ box-sizing:border-box; }
+
+    html, body{
+      margin:0;
+      min-height:100%;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      background:#0b1220;
+      color:var(--text);
     }
-    #sessionId::placeholder { color: rgba(255,255,255,0.6); }
-    #sessionId:focus { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.2); }
-    .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-    .btn { 
-      padding: 12px 24px; font: 600 16px system-ui; border-radius: 12px; cursor: pointer; 
-      border: none; transition: all 0.2s ease; min-width: 120px;
+
+    body{
+      display:flex;
+      flex-direction:column;
     }
-    .btn.primary { background: white; color: #111827; }
-    .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(255,255,255,0.3); }
-    .btn.secondary { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); }
-    .btn.secondary:hover { background: rgba(255,255,255,0.15); }
-    .status { font: 500 14px system-ui; opacity: 0.8; margin-top: 12px; min-height: 20px; }
-    @media (max-width: 480px) { .buttons { flex-direction: column; width: 100%; max-width: 360px; } }
+
+    header{
+      position:sticky;
+      top:0;
+      z-index:10;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+      background:rgba(17,24,39,.72);
+      backdrop-filter:blur(10px);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    .logo{
+      width:20px;
+      height:20px;
+      display:block;
+      border-radius:6px;
+    }
+
+    .title{
+      font-size:18px;
+      display:flex;
+      align-items:baseline;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .made{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:600;
+    }
+
+    main{
+      flex:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px 16px;
+    }
+
+    .wrap{
+      width:100%;
+      max-width:420px;
+      text-align:center;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:32px;
+      line-height:1.1;
+      letter-spacing:-0.02em;
+    }
+
+    .subtitle{
+      margin:0 0 22px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .buttons,
+    .form-actions{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      width:100%;
+    }
+
+    .btn{
+      padding:12px 14px;
+      border:1px solid #253046;
+      border-radius:14px;
+      background:var(--panel);
+      color:var(--text);
+      cursor:pointer;
+      transition:.18s ease;
+      font-weight:600;
+      font-size:15px;
+      width:100%;
+    }
+
+    .btn:hover{
+      border-color:#3a475e;
+      transform:translateY(-1px) scale(1.01);
+    }
+
+    .btn.secondary{
+      background:transparent;
+    }
+
+    .btn.ghost{
+      background:transparent;
+      border-color:transparent;
+      color:var(--muted);
+      padding:8px 0;
+      text-align:left;
+    }
+
+    .btn.ghost:hover{
+      transform:none;
+      border-color:transparent;
+      color:var(--text);
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg, rgba(96,165,250,.18), rgba(167,139,250,.14)), var(--panel);
+    }
+
+    input{
+      width:100%;
+      padding:13px 14px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(17,24,39,.9);
+      color:var(--text);
+      outline:none;
+      font-size:15px;
+      transition:border-color .18s ease, box-shadow .18s ease;
+    }
+
+    input::placeholder{
+      color:#7f8a99;
+    }
+
+    input:focus{
+      border-color:#3a475e;
+      box-shadow:0 0 0 3px rgba(96,165,250,.12);
+    }
+
+    .mode-view{
+      display:none;
+      text-align:left;
+    }
+
+    .mode-view.active{
+      display:block;
+    }
+
+    .mode-title{
+      margin:0 0 8px;
+      font-size:28px;
+      text-align:center;
+    }
+
+    .mode-subtitle{
+      margin:0 0 18px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+      text-align:center;
+    }
+
+    .status{
+      margin-top:18px;
+      min-height:22px;
+      font-size:14px;
+      color:rgba(255,255,255,.9);
+      text-align:center;
+      line-height:1.5;
+    }
+
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      text-align:center;
+    }
+
+    .spacer{
+      height:4px;
+    }
+
+    @media (max-width:640px){
+      h1{ font-size:28px; }
+      .mode-title{ font-size:24px; }
+      .wrap{ max-width:100%; }
+    }
+
+/* SPLASH SCREEN */
+
+#splash{
+  position:fixed;
+  inset:0;
+  background:#0b1220;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  transition:opacity .6s ease;
+}
+
+#splash.hide{
+  opacity:0;
+  pointer-events:none;
+}
+
+.splash-content{
+  text-align:center;
+  animation:splashIn .9s ease;
+}
+
+.splash-icon{
+  width:190px;
+  height:160px;
+  margin:auto;
+  margin-bottom:32px;
+  border-radius:26px;
+  overflow:hidden;
+  box-shadow:
+    0 24px 48px rgba(0,0,0,.45),
+    0 0 0 1px rgba(255,255,255,.04),
+    0 0 40px rgba(96,165,250,.16),
+    0 0 80px rgba(167,139,250,.10);
+}
+
+.splash-icon img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+.splash-title{
+  font-size:42px;
+  font-weight:800;
+  letter-spacing:-0.02em;
+  margin-bottom:10px;
+text-shadow: 0 0 24px rgba(255,255,255,.06);
+}
+
+.splash-author{
+  font-size:18px;
+  color:#9aa4b2;
+}
+
+@keyframes splashIn{
+  from{
+    opacity:0;
+    transform:translateY(12px) scale(.96);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
+}
   </style>
 </head>
 <body>
-  <h1>Coaching Tools</h1>
-  <p class="subtitle">Zadej email kouče pro připojení</p>
-  
-  <input id="sessionId" placeholder="email (jan@novak.cz)" autofocus>
-  
-  <div class="buttons">
-    <button class="btn primary" onclick="joinSession()">Připojit</button>
+
+<div id="splash">
+  <div class="splash-content">
+
+    <div id="splashLogo" class="splash-icon">
+      <img src="icon.png" alt="Coaching Tools">
+    </div>
+
+    <div class="splash-title">
+      Coaching Tools
+    </div>
+
+    <div class="splash-author">
+      Designed & Developed by Stanislav Lexa
+    </div>
+
   </div>
-  
-  <div id="status" class="status"></div>
+</div>
+
+  <header>
+    <div class="brand">
+      <img
+        alt="Coaching Tools"
+        id="headerLogo" class="logo"
+        src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjBhNWZhIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2E3OGJmYSIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxMTE4MjciLz4KICA8Y2lyY2xlIGN4PSIyOCIgY3k9IjI4IiByPSIxOCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjM4IiB5PSIzOCIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iNSIgZmlsbD0iI2ZmZmZmZiIvPgogIDxwYXRoIGQ9Ik00MSA0NyBsNCA1IGw4IC0xMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMmEyZjNhIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4="
+      />
+      <div class="title">
+        Coaching Tools
+        <span class="made">made by Stanislav Lexa</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+  <!-- STEP 1 -->
+<section id="entryView">
+  <h1>Vstup do aplikace</h1>
+  <p class="subtitle">Vyber způsob připojení.</p>
+
+  <div class="buttons">
+    <button class="btn" id="coachModeBtn" type="button">Jsem kouč</button>
+    <button class="btn" id="clientModeBtn" type="button">Jsem klient</button>
+  </div>
+</section>
+
+<!-- STEP 2A - COACH -->
+<section class="mode-view" id="coachView">
+  <button class="btn ghost" id="backFromCoachBtn" type="button">← zpět</button>
+
+  <h2 class="mode-title">Přihlášení kouče</h2>
+  <p class="mode-subtitle">Zadej svůj e-mail a pokračuj do aplikace.</p>
+
+  <div class="form-actions">
+    <input
+      id="coachEmail"
+      type="email"
+      placeholder="e-mail (jan.novak@firma.cz)"
+      autocomplete="email"
+      autofocus
+    />
+    <button class="btn primary" id="coachContinueBtn" type="button">Pokračovat</button>
+  </div>
+
+  <div id="coachChoiceBox" style="display:none; margin-top:18px;">
+    <div class="hint" id="coachChoiceInfo" style="margin-bottom:12px;">
+      Nalezena poslední session.
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" id="continueLastSessionBtn" type="button">
+        Pokračovat ve staré session
+      </button>
+
+      <button class="btn" id="createNewSessionBtn" type="button">
+        Vytvořit novou session
+      </button>
+    </div>
+  </div>
+
+  <div id="sessionCodeBox" style="display:none;margin-top:14px;text-align:center;">
+    <div style="font-size:13px;color:#9aa4b2;margin-bottom:6px;">
+      Kód pro klienta
+    </div>
+
+    <div
+      id="sessionCodeText"
+      style="font-size:28px;font-weight:700;letter-spacing:2px;margin-bottom:12px;"
+    ></div>
+
+    <div class="form-actions">
+      <button class="btn" id="copySessionCodeBtn" type="button">
+        Kopírovat kód
+      </button>
+
+      <button class="btn primary" id="openCreatedSessionBtn" type="button">
+        Otevřít session
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 2B - CLIENT -->
+<section class="mode-view" id="clientView">
+  <button class="btn ghost" id="backFromClientBtn" type="button">← zpět</button>
+
+  <h2 class="mode-title">Připojení klienta</h2>
+  <p class="mode-subtitle">Zadej krátký kód session od kouče.</p>
+
+  <div class="form-actions">
+    <input
+      id="clientCode"
+      type="text"
+      placeholder="kód session (např. K7F2L)"
+      autocomplete="off"
+      maxlength="5"
+    />
+    <button class="btn primary" id="clientJoinBtn" type="button">Připojit se</button>
+  </div>
+
+  <div class="hint">
+    Klientská větev je zatím jen připravená vizuálně. Napojíme ji v dalším kroku.
+  </div>
+</section>
+
+<div id="status" class="status"></div>
+
+</div>
+</main>
+
 
   <script>
-    // Firebase config (z tvého main souboru)
+    // Firebase config (z tvého současného indexu)
     const firebaseConfig = {
       apiKey: "AIzaSyBhaXrziP8OmQcCCGTTEqHGfUvHg1z74XI",
       authDomain: "coachingtools-f6f34.firebaseapp.com",
@@ -62,65 +443,449 @@
       messagingSenderId: "676417091612",
       appId: "1:676417091612:web:302be7064ec9f78d8407d9"
     };
-    
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    
-    const statusEl = document.getElementById('status');
-    const sessionIdEl = document.getElementById('sessionId');
-    
-    // Status update
-    function updateStatus(msg, isError = false) {
-      statusEl.textContent = msg;
-      statusEl.style.color = isError ? '#fed7d7' : 'rgba(255,255,255,0.9)';
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
-    
-    // Připojit se k session
-async function joinSession() {
-  const rawEmail = sessionIdEl.value.trim().toLowerCase();
-const id = rawEmail.replace(/\./g, ",");
-  if (!id) { 
-    sessionIdEl.focus(); 
-    updateStatus('Zadej ID session', true); 
-    return; 
-  }
-  
-  updateStatus('Kontroluji session...');
-  
+    const db = firebase.database();
+
+	cleanupExpiredSessions();
+
+    // DOM
+    const entryView = document.getElementById('entryView');
+    const coachView = document.getElementById('coachView');
+    const clientView = document.getElementById('clientView');
+
+    const coachModeBtn = document.getElementById('coachModeBtn');
+    const clientModeBtn = document.getElementById('clientModeBtn');
+    const backFromCoachBtn = document.getElementById('backFromCoachBtn');
+    const backFromClientBtn = document.getElementById('backFromClientBtn');
+
+    const coachContinueBtn = document.getElementById('coachContinueBtn');
+    const clientJoinBtn = document.getElementById('clientJoinBtn');
+
+	const coachChoiceBox = document.getElementById('coachChoiceBox');
+	const coachChoiceInfo = document.getElementById('coachChoiceInfo');
+	const continueLastSessionBtn = document.getElementById('continueLastSessionBtn');
+	const createNewSessionBtn = document.getElementById('createNewSessionBtn');
+
+    const coachEmailEl = document.getElementById('coachEmail');
+    const clientCodeEl = document.getElementById('clientCode');
+    const statusEl = document.getElementById('status');
+
+	const sessionCodeBox = document.getElementById('sessionCodeBox');
+const sessionCodeText = document.getElementById('sessionCodeText');
+const copySessionCodeBtn = document.getElementById('copySessionCodeBtn');
+const openCreatedSessionBtn = document.getElementById('openCreatedSessionBtn');
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hodiny
+
+async function cleanupExpiredSessions() {
   try {
-    const snapshot = await db.ref(`sessions/${id}`).once('value');
-    const exists = snapshot.exists();
-    
-    updateStatus(exists ? `✅ Session "${id}" nalezena!` : `ℹ️ Nová session "${id}" vytvořena.`);
-    
-    // Ulož session ID do localStorage (přetrvá i po refreshi)
-    localStorage.setItem('coachingSessionId', id);
-    
-    // Otevřít main app (bez ?session v URL, protože už je v localStorage)
-    setTimeout(() => {
+    const snapshot = await db.ref('sessions').once('value');
+    const sessions = snapshot.val() || {};
+    const now = Date.now();
+
+    const deleteTasks = [];
+
+    for (const [sessionId, sessionData] of Object.entries(sessions)) {
+      const lastActivity = sessionData?.lastActivity || sessionData?.createdAt || 0;
+
+      if (!lastActivity) continue;
+
+      const isExpired = (now - lastActivity) > SESSION_TIMEOUT_MS;
+      if (!isExpired) continue;
+
+      const sessionCode = sessionData?.sessionCode || null;
+      const coachKey = sessionData?.coachKey || null;
+
+      // smaž session
+      deleteTasks.push(db.ref(`sessions/${sessionId}`).remove());
+
+      // smaž code lookup
+      if (sessionCode) {
+        deleteTasks.push(db.ref(`codes/${sessionCode}`).remove());
+      }
+
+      // smaž reference u kouče, pokud ukazuje na tuhle session
+      if (coachKey) {
+        deleteTasks.push(
+          db.ref(`coaches/${coachKey}`).once('value').then(coachSnap => {
+            const coachData = coachSnap.val() || {};
+            if (coachData.lastSessionId === sessionId) {
+              return db.ref(`coaches/${coachKey}`).update({
+                lastSessionId: null,
+                lastSessionCode: null
+              });
+            }
+          })
+        );
+      }
+    }
+
+    await Promise.all(deleteTasks);
+    console.log('Cleanup expired sessions finished');
+  } catch (err) {
+    console.error('Cleanup expired sessions error:', err);
+  }
+}
+
+function emailToKey(email) {
+  return email.trim().toLowerCase().replace(/\./g, ",");
+}
+
+function generateSessionCode(length = 5) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  return result;
+}
+
+async function generateUniqueSessionCode() {
+  let code = '';
+  let exists = true;
+
+  while (exists) {
+    code = generateSessionCode(5);
+    const snapshot = await db.ref(`codes/${code}`).once('value');
+    exists = snapshot.exists();
+  }
+
+  return code;
+}
+
+function openCoachSession(sessionId, rawEmail, coachKey, sessionCode = '') {
+
+  localStorage.setItem('coachingSessionId', sessionId);
+  localStorage.setItem('coachEmail', rawEmail);
+  localStorage.setItem('coachKey', coachKey);
+  localStorage.setItem('sessionCode', sessionCode);
+
+  localStorage.setItem('userRole', 'coach');
+
   window.location.href = 'coaching-tools-vA4.html';
-}, 800);
-    
+}
+
+function openClientSession(sessionId, sessionCode = '') {
+
+  localStorage.setItem('coachingSessionId', sessionId);
+  localStorage.setItem('sessionCode', sessionCode);
+
+  localStorage.removeItem('coachEmail');
+  localStorage.removeItem('coachKey');
+
+  localStorage.setItem('userRole', 'client');
+
+  window.location.href = 'coaching-tools-vA4.html';
+}
+
+async function createNewSessionForCoach(rawEmail, coachKey) {
+  const sessionRef = db.ref('sessions').push();
+  const sessionId = sessionRef.key;
+  const sessionCode = await generateUniqueSessionCode();
+  const now = Date.now();
+
+  await sessionRef.set({
+    coachKey,
+    coachEmail: rawEmail,
+    sessionCode,
+    createdAt: now,
+    lastActivity: now,
+    state: {}
+  });
+
+  await db.ref(`codes/${sessionCode}`).set({
+    sessionId,
+    coachKey
+  });
+
+  await db.ref(`coaches/${coachKey}`).update({
+    email: rawEmail,
+    lastSessionId: sessionId,
+    lastSessionCode: sessionCode
+  });
+
+  sessionCodeText.textContent = sessionCode;
+  sessionCodeBox.style.display = 'block';
+  coachChoiceBox.style.display = 'none';
+
+  updateStatus('Session vytvořena. Sdílej kód s klientem nebo pokračuj do aplikace.');
+
+  copySessionCodeBtn.textContent = 'Kopírovat kód';
+  copySessionCodeBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(sessionCode);
+      copySessionCodeBtn.textContent = 'Zkopírováno ✓';
+    } catch (e) {
+      updateStatus('Nepodařilo se zkopírovat kód.', true);
+    }
+  };
+
+  openCreatedSessionBtn.onclick = () => {
+  openCoachSession(sessionId, rawEmail, coachKey, sessionCode);
+};
+}
+
+async function joinCoachSession() {
+  const rawEmail = coachEmailEl.value.trim().toLowerCase();
+  const coachKey = emailToKey(rawEmail);
+
+  if (!rawEmail) {
+    coachEmailEl.focus();
+    updateStatus('Zadej e-mail.', true);
+    return;
+  }
+
+  updateStatus('Kontroluji účet kouče...');
+  coachChoiceBox.style.display = 'none';
+
+  try {
+    const coachSnapshot = await db.ref(`coaches/${coachKey}`).once('value');
+    const coachData = coachSnapshot.val();
+
+    if (coachData?.lastSessionId) {
+      coachChoiceInfo.textContent =
+        coachData.lastSessionCode
+          ? `Nalezena poslední session: ${coachData.lastSessionCode}`
+          : 'Nalezena poslední session.';
+
+      coachChoiceBox.style.display = 'block';
+      updateStatus('Vyber, jak chceš pokračovat.');
+
+      continueLastSessionBtn.onclick = () => {
+  openCoachSession(
+    coachData.lastSessionId,
+    rawEmail,
+    coachKey,
+    coachData.lastSessionCode || ''
+  );
+};
+
+      createNewSessionBtn.onclick = async () => {
+        updateStatus('Vytvářím novou session...');
+        try {
+          await createNewSessionForCoach(rawEmail, coachKey);
+        } catch (e) {
+          updateStatus('Chyba při vytváření nové session: ' + e.message, true);
+        }
+      };
+
+      return;
+    }
+
+    const legacySnapshot = await db.ref(`sessions/${coachKey}`).once('value');
+
+    if (legacySnapshot.exists()) {
+      coachChoiceInfo.textContent = 'Nalezena starší session z původní verze aplikace.';
+      coachChoiceBox.style.display = 'block';
+      updateStatus('Vyber, jak chceš pokračovat.');
+
+      continueLastSessionBtn.onclick = async () => {
+  await db.ref(`coaches/${coachKey}`).update({
+    email: rawEmail,
+    lastSessionId: coachKey,
+    lastSessionCode: 'LEGACY'
+  });
+
+  openCoachSession(coachKey, rawEmail, coachKey, 'LEGACY');
+};
+
+      createNewSessionBtn.onclick = async () => {
+        updateStatus('Vytvářím novou session...');
+        try {
+          await createNewSessionForCoach(rawEmail, coachKey);
+        } catch (e) {
+          updateStatus('Chyba při vytváření nové session: ' + e.message, true);
+        }
+      };
+
+      return;
+    }
+
+    updateStatus('Zakládám první session...');
+    await createNewSessionForCoach(rawEmail, coachKey);
+
   } catch (e) {
     updateStatus('Chyba připojení: ' + e.message, true);
   }
 }
-    
-    // Vytvořit novou session
-    function newSession() {
-      const id = 'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
-      sessionIdEl.value = id;
-      joinSession();
+
+    function updateStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.style.color = isError ? '#fed7d7' : 'rgba(255,255,255,0.9)';
     }
-    
-    // Enter klávesa
-    sessionIdEl.addEventListener('keypress', e => {
-      if (e.key === 'Enter') joinSession();
+
+    function showEntry() {
+      entryView.style.display = 'block';
+      coachView.classList.remove('active');
+      clientView.classList.remove('active');
+	coachChoiceBox.style.display = 'none';
+	sessionCodeBox.style.display = 'none';
+      statusEl.textContent = '';
+    }
+
+    function showCoach() {
+      entryView.style.display = 'none';
+      coachView.classList.add('active');
+      clientView.classList.remove('active');
+	coachChoiceBox.style.display = 'none';
+	sessionCodeBox.style.display = 'none';
+      statusEl.textContent = '';
+      setTimeout(() => coachEmailEl.focus(), 50);
+    }
+
+    function showClient() {
+  entryView.style.display = 'none';
+  coachView.classList.remove('active');
+  clientView.classList.add('active');
+  coachChoiceBox.style.display = 'none';
+  sessionCodeBox.style.display = 'none';
+  statusEl.textContent = '';
+  setTimeout(() => clientCodeEl.focus(), 50);
+}
+
+    coachModeBtn.addEventListener('click', showCoach);
+    clientModeBtn.addEventListener('click', showClient);
+    backFromCoachBtn.addEventListener('click', showEntry);
+    backFromClientBtn.addEventListener('click', showEntry);
+
+
+    async function joinClientSession() {
+  const code = clientCodeEl.value.trim().toUpperCase();
+
+  if (!code) {
+    clientCodeEl.focus();
+    updateStatus('Zadej kód session.', true);
+    return;
+  }
+
+  if (code.length !== 5) {
+    clientCodeEl.focus();
+    updateStatus('Kód session musí mít 5 znaků.', true);
+    return;
+  }
+
+  updateStatus('Vyhledávám session podle kódu...');
+
+  try {
+    const codeSnapshot = await db.ref(`codes/${code}`).once('value');
+
+    if (!codeSnapshot.exists()) {
+      updateStatus('Tento kód session nebyl nalezen.', true);
+      return;
+    }
+
+    const codeData = codeSnapshot.val();
+    const sessionId = codeData?.sessionId;
+
+    if (!sessionId) {
+      updateStatus('Kód je neplatný nebo neúplný.', true);
+      return;
+    }
+
+    const sessionSnapshot = await db.ref(`sessions/${sessionId}`).once('value');
+
+    if (!sessionSnapshot.exists()) {
+      updateStatus('Session pro tento kód už neexistuje.', true);
+      return;
+    }
+
+    updateStatus('Session nalezena. Připojuji klienta...');
+
+    setTimeout(() => {
+      openClientSession(sessionId, code);
+    }, 500);
+
+  } catch (e) {
+    updateStatus('Chyba připojení: ' + e.message, true);
+  }
+}
+
+    coachContinueBtn.addEventListener('click', joinCoachSession);
+    clientJoinBtn.addEventListener('click', joinClientSession);
+
+    coachEmailEl.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinCoachSession();
     });
-    
-    // Inicializace
-    sessionIdEl.focus();
-    updateStatus('Zadej ID a stiskni Enter nebo klikni Připojit');
+
+    clientCodeEl.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinClientSession();
+    });
+
+clientCodeEl.addEventListener('input', () => {
+  clientCodeEl.value = clientCodeEl.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+});
+
+// SPLASH SCREEN
+window.addEventListener('DOMContentLoaded', () => {
+  const splash = document.getElementById('splash');
+
+  if (!splash) return;
+
+  setTimeout(() => {
+    try {
+      animateLogoTransition();
+    } catch (e) {
+      console.warn('Splash animation fallback:', e);
+    }
+
+    splash.classList.add('hide');
+
+    setTimeout(() => {
+      if (splash && splash.parentNode) {
+        splash.parentNode.removeChild(splash);
+      }
+    }, 650);
+  }, 1700);
+});
+
+function animateLogoTransition() {
+  const splashLogo = document.getElementById('splashLogo');
+  const headerLogo = document.getElementById('headerLogo');
+
+  if (!splashLogo || !headerLogo) return;
+
+  const splashRect = splashLogo.getBoundingClientRect();
+  const headerRect = headerLogo.getBoundingClientRect();
+
+  const clone = splashLogo.cloneNode(true);
+
+  clone.style.position = 'fixed';
+  clone.style.left = splashRect.left + 'px';
+  clone.style.top = splashRect.top + 'px';
+  clone.style.width = splashRect.width + 'px';
+  clone.style.height = splashRect.height + 'px';
+  clone.style.margin = '0';
+  clone.style.transition = 'all .6s cubic-bezier(.4,0,.2,1)';
+  clone.style.zIndex = '10000';
+  clone.style.pointerEvents = 'none';
+
+  document.body.appendChild(clone);
+
+  splashLogo.style.opacity = '0';
+  headerLogo.style.opacity = '0';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      clone.style.left = headerRect.left + 'px';
+      clone.style.top = headerRect.top + 'px';
+      clone.style.width = headerRect.width + 'px';
+      clone.style.height = headerRect.height + 'px';
+    });
+  });
+
+  setTimeout(() => {
+    headerLogo.style.opacity = '1';
+    if (clone && clone.parentNode) {
+      clone.parentNode.removeChild(clone);
+    }
+  }, 620);
+}
+
+
   </script>
 </body>
 </html>
