@@ -14,7 +14,7 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
-
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
   <style>
     :root{
       --bg:#0f172a;
@@ -350,19 +350,34 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
 <!-- STEP 2A - COACH -->
 <section class="mode-view" id="coachView">
   <button class="btn ghost" id="backFromCoachBtn" type="button">← zpět</button>
+  <button class="btn ghost" id="logoutBtn" type="button" style="margin-top:10px;">
+    Odhlásit se
+  </button>
 
-  <h2 class="mode-title">Přihlášení kouče</h2>
-  <p class="mode-subtitle">Zadej svůj e-mail a pokračuj do aplikace.</p>
+  <div id="coachAuthBox">
+    <h2 class="mode-title">Přihlášení kouče</h2>
+    <p class="mode-subtitle">Přihlas se nebo si vytvoř účet.</p>
 
-  <div class="form-actions">
-    <input
-      id="coachEmail"
-      type="email"
-      placeholder="e-mail (jan.novak@firma.cz)"
-      autocomplete="email"
-      autofocus
-    />
-    <button class="btn primary" id="coachContinueBtn" type="button">Pokračovat</button>
+    <div class="form-actions">
+      <input
+        id="coachEmail"
+        type="email"
+        placeholder="e-mail (jan.novak@firma.cz)"
+        autocomplete="email"
+        autofocus
+      />
+
+      <input
+        id="coachPassword"
+        type="password"
+        placeholder="heslo"
+        autocomplete="current-password"
+      />
+
+      <button class="btn primary" id="coachLoginBtn" type="button">Přihlásit se</button>
+      <button class="btn" id="coachRegisterBtn" type="button">Registrovat</button>
+      <button class="btn ghost" id="coachResetPasswordBtn" type="button">Zapomenuté heslo?</button>
+    </div>
   </div>
 
   <div id="coachChoiceBox" style="display:none; margin-top:18px;">
@@ -394,6 +409,10 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
     <div class="form-actions">
       <button class="btn" id="copySessionCodeBtn" type="button">
         Kopírovat kód
+      </button>
+      
+      <button class="btn" id="copyLinkBtn" type="button">
+        Kopírovat odkaz pro klienta
       </button>
 
       <button class="btn primary" id="openCreatedSessionBtn" type="button">
@@ -448,7 +467,8 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
       firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.database();
-
+    const auth = firebase.auth();
+    
 	cleanupExpiredSessions();
 
     // DOM
@@ -461,15 +481,21 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
     const backFromCoachBtn = document.getElementById('backFromCoachBtn');
     const backFromClientBtn = document.getElementById('backFromClientBtn');
 
-    const coachContinueBtn = document.getElementById('coachContinueBtn');
+    const coachLoginBtn = document.getElementById('coachLoginBtn');
+    const coachRegisterBtn = document.getElementById('coachRegisterBtn');
+    const coachResetPasswordBtn = document.getElementById('coachResetPasswordBtn');
     const clientJoinBtn = document.getElementById('clientJoinBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
 
+    const coachAuthBox = document.getElementById('coachAuthBox');
 	const coachChoiceBox = document.getElementById('coachChoiceBox');
 	const coachChoiceInfo = document.getElementById('coachChoiceInfo');
 	const continueLastSessionBtn = document.getElementById('continueLastSessionBtn');
 	const createNewSessionBtn = document.getElementById('createNewSessionBtn');
 
     const coachEmailEl = document.getElementById('coachEmail');
+    const coachPasswordEl = document.getElementById('coachPassword');
     const clientCodeEl = document.getElementById('clientCode');
     const statusEl = document.getElementById('status');
 
@@ -560,9 +586,10 @@ async function generateUniqueSessionCode() {
 function openCoachSession(sessionId, rawEmail, coachKey, sessionCode = '') {
 
   localStorage.setItem('coachingSessionId', sessionId);
+  localStorage.setItem('sessionCode', sessionCode);
   localStorage.setItem('coachEmail', rawEmail);
   localStorage.setItem('coachKey', coachKey);
-  localStorage.setItem('sessionCode', sessionCode);
+  
 
   localStorage.setItem('userRole', 'coach');
 
@@ -581,6 +608,23 @@ function openClientSession(sessionId, sessionCode = '') {
 
   window.location.href = 'coaching-tools-vA4.html';
 }
+      
+      function copyClientLink() {
+          const sessionCode = localStorage.getItem('sessionCode');
+
+          if (!sessionCode) {
+          updateStatus('Session nenalezena.', true);
+          return;
+        }
+
+          const baseUrl = window.location.href.replace(/[^/]*$/, 'index.html').split('?')[0];
+
+        const link = `${baseUrl}?code=${encodeURIComponent(sessionCode)}`;
+
+        navigator.clipboard.writeText(link)
+          .then(() => updateStatus('Odkaz zkopírován.'))
+          .catch(() => updateStatus('Nepodařilo se zkopírovat odkaz.', true));
+      }
 
 async function createNewSessionForCoach(rawEmail, coachKey) {
   const sessionRef = db.ref('sessions').push();
@@ -609,6 +653,7 @@ async function createNewSessionForCoach(rawEmail, coachKey) {
   });
 
   sessionCodeText.textContent = sessionCode;
+  localStorage.setItem('sessionCode', sessionCode);
   sessionCodeBox.style.display = 'block';
   coachChoiceBox.style.display = 'none';
 
@@ -629,6 +674,113 @@ async function createNewSessionForCoach(rawEmail, coachKey) {
 };
 }
 
+      async function loginCoach() {
+        const rawEmail = coachEmailEl.value.trim().toLowerCase();
+        const password = coachPasswordEl.value;
+
+        if (!rawEmail) {
+          coachEmailEl.focus();
+          updateStatus('Zadej e-mail.', true);
+          return;
+        }
+
+        if (!password) {
+          coachPasswordEl.focus();
+          updateStatus('Zadej heslo.', true);
+          return;
+        }
+
+        try {
+          updateStatus('Přihlašuji kouče...');
+          await auth.signInWithEmailAndPassword(rawEmail, password);
+          await continueAsCoach();
+        } catch (e) {
+          updateStatus('Chyba přihlášení: ' + e.message, true);
+        }
+      }
+
+      async function registerCoach() {
+        const rawEmail = coachEmailEl.value.trim().toLowerCase();
+        const password = coachPasswordEl.value;
+
+        if (!rawEmail) {
+          coachEmailEl.focus();
+          updateStatus('Zadej e-mail.', true);
+          return;
+        }
+
+        if (!password) {
+          coachPasswordEl.focus();
+          updateStatus('Zadej heslo.', true);
+          return;
+        }
+
+        if (password.length < 6) {
+          coachPasswordEl.focus();
+          updateStatus('Heslo musí mít alespoň 6 znaků.', true);
+          return;
+        }
+
+        try {
+          updateStatus('Vytvářím účet kouče...');
+          await auth.createUserWithEmailAndPassword(rawEmail, password);
+          await continueAsCoach();
+        } catch (e) {
+          updateStatus('Chyba registrace: ' + e.message, true);
+        }
+      }
+
+      async function resetCoachPassword() {
+        const rawEmail = coachEmailEl.value.trim().toLowerCase();
+
+        if (!rawEmail) {
+          coachEmailEl.focus();
+          updateStatus('Nejdřív zadej e-mail pro reset hesla.', true);
+          return;
+        }
+
+        try {
+          updateStatus('Odesílám e-mail pro reset hesla...');
+          await auth.sendPasswordResetEmail(rawEmail);
+          updateStatus('E-mail pro reset hesla byl odeslán.');
+        } catch (e) {
+          updateStatus('Chyba resetu hesla: ' + e.message, true);
+        }
+      }
+
+      async function logoutCoach() {
+        try {
+          await auth.signOut();
+
+          // vyčisti localStorage (UX)
+          localStorage.removeItem('coachingSessionId');
+          localStorage.removeItem('userRole');
+
+          updateStatus('Odhlášeno.');
+
+          // vrať na úvod
+          location.reload();
+        } catch (e) {
+          updateStatus('Chyba při odhlášení: ' + e.message, true);
+        }
+      }
+      
+      async function continueAsCoach() {
+        const user = auth.currentUser;
+
+        if (!user || !user.email) {
+          updateStatus('Kouč není přihlášen.', true);
+          return;
+        }
+
+        coachEmailEl.value = user.email;
+        coachAuthBox.style.display = 'none';
+        coachChoiceBox.style.display = 'block';
+        logoutBtn.style.display = 'inline-flex';
+
+        await joinCoachSession();
+      }
+      
 async function joinCoachSession() {
   const rawEmail = coachEmailEl.value.trim().toLowerCase();
   const coachKey = emailToKey(rawEmail);
@@ -727,15 +879,30 @@ async function joinCoachSession() {
       statusEl.textContent = '';
     }
 
-    function showCoach() {
-      entryView.style.display = 'none';
-      coachView.classList.add('active');
-      clientView.classList.remove('active');
-	coachChoiceBox.style.display = 'none';
-	sessionCodeBox.style.display = 'none';
-      statusEl.textContent = '';
-      setTimeout(() => coachEmailEl.focus(), 50);
-    }
+      function showCoach() {
+        entryView.style.display = 'none';
+        coachView.classList.add('active');
+        clientView.classList.remove('active');
+        sessionCodeBox.style.display = 'none';
+        statusEl.textContent = '';
+
+        const user = auth.currentUser;
+
+        if (user?.email) {
+          coachEmailEl.value = user.email;
+          coachAuthBox.style.display = 'none';
+          coachChoiceBox.style.display = 'block';
+          logoutBtn.style.display = 'inline-flex';
+          updateStatus('Kouč už je přihlášený.');
+          setTimeout(() => continueAsCoach(), 100);
+          return;
+        }
+
+        coachAuthBox.style.display = 'block';
+        coachChoiceBox.style.display = 'none';
+        logoutBtn.style.display = 'none';
+        setTimeout(() => coachEmailEl.focus(), 50);
+      }
 
     function showClient() {
   entryView.style.display = 'none';
@@ -747,11 +914,36 @@ async function joinCoachSession() {
   setTimeout(() => clientCodeEl.focus(), 50);
 }
 
+      function getCodeFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('code');
+      }
+
+      function autoJoinClientFromLink() {
+        const codeFromUrl = getCodeFromUrl();
+
+        if (!codeFromUrl) return;
+
+        entryView.style.display = 'none';
+        coachView.classList.remove('active');
+        clientView.classList.add('active');
+        coachChoiceBox.style.display = 'none';
+        sessionCodeBox.style.display = 'none';
+        statusEl.textContent = '';
+
+        clientCodeEl.value = codeFromUrl.toUpperCase();
+
+        setTimeout(() => {
+          joinClientSession();
+        }, 100);
+      }
+      
     coachModeBtn.addEventListener('click', showCoach);
     clientModeBtn.addEventListener('click', showClient);
     backFromCoachBtn.addEventListener('click', showEntry);
     backFromClientBtn.addEventListener('click', showEntry);
-
+    logoutBtn.addEventListener('click', logoutCoach);
+    copyLinkBtn.addEventListener('click', copyClientLink);
 
     async function joinClientSession() {
   const code = clientCodeEl.value.trim().toUpperCase();
@@ -804,12 +996,18 @@ async function joinCoachSession() {
   }
 }
 
-    coachContinueBtn.addEventListener('click', joinCoachSession);
-    clientJoinBtn.addEventListener('click', joinClientSession);
+      coachLoginBtn.addEventListener('click', loginCoach);
+      coachRegisterBtn.addEventListener('click', registerCoach);
+      coachResetPasswordBtn.addEventListener('click', resetCoachPassword);
+      clientJoinBtn.addEventListener('click', joinClientSession);
 
-    coachEmailEl.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') joinCoachSession();
-    });
+      coachEmailEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginCoach();
+      });
+
+      coachPasswordEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginCoach();
+      });
 
     clientCodeEl.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') joinClientSession();
@@ -885,6 +1083,7 @@ function animateLogoTransition() {
   }, 620);
 }
 
+      autoJoinClientFromLink();
 
   </script>
 </body>
