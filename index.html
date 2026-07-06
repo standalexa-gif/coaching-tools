@@ -339,7 +339,7 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
   <!-- STEP 1 -->
 <section id="entryView">
   <h1>Vstup do aplikace</h1>
-  <p class="subtitle">Vyber způsob připojení.</p>
+  <p class="subtitle">Vyber roli a během minuty se připoj do společné session.</p>
 
   <div class="buttons">
     <button class="btn" id="coachModeBtn" type="button">Jsem kouč</button>
@@ -356,7 +356,7 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
 
   <div id="coachAuthBox">
     <h2 class="mode-title">Přihlášení kouče</h2>
-    <p class="mode-subtitle">Přihlas se nebo si vytvoř účet.</p>
+    <p class="mode-subtitle">Přihlas se jako kouč a navážeš na rozpracovanou práci.</p>
 
     <div class="form-actions">
       <input
@@ -370,7 +370,7 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
       <input
         id="coachPassword"
         type="password"
-        placeholder="heslo"
+        placeholder="Heslo"
         autocomplete="current-password"
       />
 
@@ -382,17 +382,23 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
 
   <div id="coachChoiceBox" style="display:none; margin-top:18px;">
     <div class="hint" id="coachChoiceInfo" style="margin-bottom:12px;">
-      Nalezena poslední session.
+      Našli jsme poslední rozpracovanou session.
     </div>
 
     <div class="form-actions">
       <button class="btn" id="continueLastSessionBtn" type="button">
-        Pokračovat ve staré session
+        Pokračovat v rozpracované session
       </button>
 
       <button class="btn" id="createNewSessionBtn" type="button">
-        Vytvořit novou session
+        Vytvořit novou pracovní session
       </button>
+    </div>
+
+    <div id="coachSessionsOverview" style="margin-top:16px; border:1px solid #253046; border-radius:12px; padding:10px; background:rgba(15,23,42,.45);">
+      <div style="font-weight:700; font-size:13px; margin-bottom:8px;">Moje session</div>
+      <div id="sessionsOverviewStatus" style="font-size:12px; color:#9aa4b2; margin-bottom:8px;">Načítám přehled session…</div>
+      <div id="sessionsOverviewList" style="display:grid; gap:8px;"></div>
     </div>
   </div>
 
@@ -427,7 +433,7 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
   <button class="btn ghost" id="backFromClientBtn" type="button">← zpět</button>
 
   <h2 class="mode-title">Připojení klienta</h2>
-  <p class="mode-subtitle">Zadej krátký kód session od kouče.</p>
+  <p class="mode-subtitle">Zadej kód od kouče a připojíš se ke stejné pracovní ploše v reálném čase.</p>
 
   <div class="form-actions">
     <input
@@ -441,7 +447,7 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
   </div>
 
   <div class="hint">
-    Klientská větev je zatím jen připravená vizuálně. Napojíme ji v dalším kroku.
+    Po připojení uvidíš stejná data jako kouč a můžete pracovat společně.
   </div>
 </section>
 
@@ -468,8 +474,8 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
     }
     const db = firebase.database();
     const auth = firebase.auth();
-    
-	cleanupExpiredSessions();
+
+  	// cleanupExpiredSessions();
 
     // DOM
     const entryView = document.getElementById('entryView');
@@ -493,6 +499,9 @@ text-shadow: 0 0 24px rgba(255,255,255,.06);
 	const coachChoiceInfo = document.getElementById('coachChoiceInfo');
 	const continueLastSessionBtn = document.getElementById('continueLastSessionBtn');
 	const createNewSessionBtn = document.getElementById('createNewSessionBtn');
+    const coachSessionsOverviewEl = document.getElementById('coachSessionsOverview');
+    const sessionsOverviewStatusEl = document.getElementById('sessionsOverviewStatus');
+    const sessionsOverviewListEl = document.getElementById('sessionsOverviewList');
 
     const coachEmailEl = document.getElementById('coachEmail');
     const coachPasswordEl = document.getElementById('coachPassword');
@@ -504,6 +513,261 @@ const sessionCodeText = document.getElementById('sessionCodeText');
 const copySessionCodeBtn = document.getElementById('copySessionCodeBtn');
 const openCreatedSessionBtn = document.getElementById('openCreatedSessionBtn');
 const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hodiny
+const APP_LOCAL_STORAGE_KEYS = [
+  'coachingSessionId',
+  'sessionCode',
+  'coachEmail',
+  'coachUid',
+  'userRole'
+];
+let currentSessionCode = '';
+
+function clearSessionContext() {
+  APP_LOCAL_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+  sessionStorage.removeItem('parentClientId');
+  currentSessionCode = '';
+}
+
+function setCurrentSessionCode(code = '') {
+  currentSessionCode = String(code || '').trim().toUpperCase();
+  if (currentSessionCode) {
+    localStorage.setItem('sessionCode', currentSessionCode);
+  } else {
+    localStorage.removeItem('sessionCode');
+  }
+}
+
+function getCurrentSessionCode() {
+  if (currentSessionCode) return currentSessionCode;
+  currentSessionCode = (localStorage.getItem('sessionCode') || '').trim().toUpperCase();
+  return currentSessionCode;
+}
+
+function normalizeSessionStatus(status) {
+  const normalized = String(status || 'active').toLowerCase();
+  if (normalized === 'ended' || normalized === 'archived') return normalized;
+  return 'active';
+}
+
+function getSessionStatusLabel(status) {
+  const normalized = normalizeSessionStatus(status);
+  if (normalized === 'ended') return 'ukončená';
+  if (normalized === 'archived') return 'archivovaná';
+  return 'aktivní';
+}
+
+function formatDateTime(ts) {
+  const n = Number(ts || 0);
+  if (!n) return '-';
+  const d = new Date(n);
+  return `${d.toLocaleDateString('cs-CZ')} ${d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function flattenValue(value) {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).trim();
+  }
+  if (Array.isArray(value)) {
+    return value.map(flattenValue).filter(Boolean).join(' | ');
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value)
+      .sort()
+      .map((key) => flattenValue(value[key]))
+      .filter(Boolean)
+      .join(' | ');
+  }
+  return '';
+}
+
+function escapeHtml(text) {
+  return String(text || '').replace(/[&<>\"']/g, (m) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;' }[m]));
+}
+
+function renderSessionsOverview(items) {
+  if (!sessionsOverviewListEl || !sessionsOverviewStatusEl) return;
+
+  if (!items.length) {
+    sessionsOverviewStatusEl.textContent = 'Zatím nemáš žádné session.';
+    sessionsOverviewListEl.innerHTML = '';
+    return;
+  }
+
+  sessionsOverviewStatusEl.textContent = `Nalezeno session: ${items.length}`;
+  sessionsOverviewListEl.innerHTML = items.map((item) => {
+    const statusLabel = getSessionStatusLabel(item.status);
+    const statusColor = item.status === 'active' ? '#4ade80' : (item.status === 'ended' ? '#fbbf24' : '#cbd5e1');
+    return `<div style="border:1px solid #253046; border-radius:10px; padding:8px; display:grid; gap:6px;">`
+      + `<div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">`
+      + `<strong style="font-size:13px;">${escapeHtml(item.title || 'Session')}</strong>`
+      + `<span style="font-size:11px; color:${statusColor}; font-weight:700; text-transform:uppercase;">${escapeHtml(statusLabel)}</span>`
+      + `</div>`
+      + `<div style="font-size:11px; color:#9aa4b2;">Kód: ${escapeHtml(item.sessionCode || '-')} • Poslední aktivita: ${escapeHtml(formatDateTime(item.lastActivity))}</div>`
+      + `<div style="display:flex; gap:6px; flex-wrap:wrap;">`
+      + `<button class="btn" type="button" data-session-action="open" data-session-id="${escapeHtml(item.sessionId)}" data-session-code="${escapeHtml(item.sessionCode || '')}" style="padding:6px 10px; font-size:12px;">Otevřít</button>`
+      + `<button class="btn" type="button" data-session-action="duplicate" data-session-id="${escapeHtml(item.sessionId)}" style="padding:6px 10px; font-size:12px;">Duplikovat</button>`
+      + `<button class="btn" type="button" data-session-action="export" data-session-id="${escapeHtml(item.sessionId)}" style="padding:6px 10px; font-size:12px;">Exportovat</button>`
+      + `</div>`
+      + `</div>`;
+  }).join('');
+}
+
+function buildClientInviteLink(sessionCode) {
+  const baseUrl = window.location.href.replace(/[^/]*$/, 'index.html').split('?')[0];
+  return `${baseUrl}?code=${encodeURIComponent(sessionCode)}`;
+}
+
+async function loadCoachSessionsOverview() {
+  if (!sessionsOverviewStatusEl || !sessionsOverviewListEl) return;
+
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    sessionsOverviewStatusEl.textContent = 'Pro přehled session je potřeba přihlášení.';
+    sessionsOverviewListEl.innerHTML = '';
+    return;
+  }
+
+  sessionsOverviewStatusEl.textContent = 'Načítám přehled session…';
+
+  try {
+    const snap = await db.ref(`coaches/${user.uid}/sessions`).once('value');
+    const entries = Object.entries(snap.val() || {}).map(([sessionId, data]) => ({
+      sessionId,
+      sessionCode: String(data?.sessionCode || '').trim().toUpperCase(),
+      status: normalizeSessionStatus(data?.status),
+      title: String(data?.title || '').trim() || `Session ${String(data?.sessionCode || '').trim().toUpperCase()}`,
+      createdAt: Number(data?.createdAt || 0),
+      lastActivity: Number(data?.lastActivity || data?.createdAt || 0)
+    })).sort((a, b) => (b.lastActivity || b.createdAt || 0) - (a.lastActivity || a.createdAt || 0));
+
+    renderSessionsOverview(entries);
+  } catch (e) {
+    sessionsOverviewStatusEl.textContent = 'Nepodařilo se načíst přehled session.';
+    sessionsOverviewListEl.innerHTML = '';
+    console.error('Chyba načtení přehledu session:', e);
+  }
+}
+
+function buildSessionExportHtml(sessionCode, sessionState) {
+  const now = new Date();
+  const sections = Object.entries(sessionState || {})
+    .filter(([_, appState]) => appState && typeof appState === 'object')
+    .sort((a, b) => a[0].localeCompare(b[0], 'cs'))
+    .map(([appKey, appState]) => {
+      const rows = Object.entries(appState)
+        .filter(([key]) => !String(key).startsWith('_'))
+        .map(([key, value]) => ({ key, value: flattenValue(value) }))
+        .filter((row) => row.value)
+        .map((row) => `<tr><td style="padding:8px 10px;border-top:1px solid #e2e8f0;vertical-align:top;width:35%;font-weight:600;">${escapeHtml(row.key)}</td><td style="padding:8px 10px;border-top:1px solid #e2e8f0;">${escapeHtml(row.value)}</td></tr>`)
+        .join('');
+
+      if (!rows) return '';
+
+      return `<section style="border:1px solid #dbe2ea;border-radius:12px;padding:12px;margin:0 0 14px;page-break-inside:avoid;">`
+        + `<h2 style="margin:0 0 10px;font-size:18px;color:#0f172a;">${escapeHtml(appKey)}</h2>`
+        + `<table style="width:100%;border-collapse:collapse;font-size:13px;color:#1e293b;">${rows}</table>`
+        + `</section>`;
+    })
+    .filter(Boolean)
+    .join('');
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Export session ${escapeHtml(sessionCode)}</title></head><body style="margin:28px;background:#fff;color:#0f172a;font-family:Inter,Segoe UI,Arial,sans-serif;">`
+    + `<header style="margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;">`
+    + `<h1 style="margin:0 0 8px;font-size:28px;">Shrnutí koučovací session</h1>`
+    + `<div style="font-size:13px;color:#334155;">Kód session: ${escapeHtml(sessionCode)} • Datum exportu: ${now.toLocaleDateString('cs-CZ')} ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</div>`
+    + `</header>${sections || '<p>Session zatím neobsahuje žádná data.</p>'}</body></html>`;
+}
+
+async function exportSessionById(sessionId) {
+  const snap = await db.ref(`sessions/${sessionId}`).once('value');
+  if (!snap.exists()) {
+    throw new Error('Session neexistuje.');
+  }
+  const data = snap.val() || {};
+  const sessionCode = String(data.sessionCode || 'BEZ-KODU').trim().toUpperCase();
+  const html = buildSessionExportHtml(sessionCode, data.state || {});
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    throw new Error('Povol otevírání nových oken pro export.');
+  }
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 320);
+}
+
+async function duplicateSessionForCoach(sourceSessionId) {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    throw new Error('Kouč není přihlášen.');
+  }
+
+  const sourceSnap = await db.ref(`sessions/${sourceSessionId}`).once('value');
+  if (!sourceSnap.exists()) {
+    throw new Error('Původní session neexistuje.');
+  }
+
+  const source = sourceSnap.val() || {};
+  const sessionCode = await generateUniqueSessionCode();
+  const now = Date.now();
+  const newSessionRef = db.ref('sessions').push();
+  const newSessionId = newSessionRef.key;
+  const title = String(source.title || '').trim() || `Session ${sessionCode}`;
+
+  await Promise.all([
+    newSessionRef.set({
+      ownerUid: user.uid,
+      coachEmail: String(user.email || '').trim().toLowerCase(),
+      sessionCode,
+      title,
+      status: 'active',
+      endedAt: null,
+      archivedAt: null,
+      createdAt: now,
+      lastActivity: now,
+      state: source.state || {},
+      ui: source.ui || {}
+    }),
+    db.ref(`codes/${sessionCode}`).set({
+      sessionId: newSessionId,
+      ownerUid: user.uid,
+      createdAt: now
+    }),
+    db.ref(`coaches/${user.uid}`).update({
+      email: String(user.email || '').trim().toLowerCase(),
+      lastSessionId: newSessionId,
+      lastSessionCode: sessionCode
+    }),
+    db.ref(`coaches/${user.uid}/sessions/${newSessionId}`).set({
+      sessionCode,
+      status: 'active',
+      title,
+      createdAt: now,
+      lastActivity: now
+    })
+  ]);
+
+  return { newSessionId, sessionCode };
+}
+
+function consumeEntryReasonStatus() {
+  const params = new URLSearchParams(window.location.search);
+  const reason = params.get('reason');
+  if (!reason) return;
+
+  const messages = {
+    'session-expired': 'Session vypršela nebo byla ukončena. Připoj se prosím znovu.',
+    'session-ended': 'Session byla ukončena. Pro pokračování založ novou nebo se znovu připoj.'
+  };
+
+  updateStatus(messages[reason] || 'Session už není aktivní. Připoj se prosím znovu.', true);
+
+  params.delete('reason');
+  const nextQuery = params.toString();
+  const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', nextUrl);
+}
 
 async function cleanupExpiredSessions() {
   try {
@@ -522,7 +786,7 @@ async function cleanupExpiredSessions() {
       if (!isExpired) continue;
 
       const sessionCode = sessionData?.sessionCode || null;
-      const coachKey = sessionData?.coachKey || null;
+      const ownerUid = sessionData?.ownerUid || null;
 
       // smaž session
       deleteTasks.push(db.ref(`sessions/${sessionId}`).remove());
@@ -532,13 +796,13 @@ async function cleanupExpiredSessions() {
         deleteTasks.push(db.ref(`codes/${sessionCode}`).remove());
       }
 
-      // smaž reference u kouče, pokud ukazuje na tuhle session
-      if (coachKey) {
+      // smaž reference u kouče podle ownerUid (nový model)
+      if (ownerUid) {
         deleteTasks.push(
-          db.ref(`coaches/${coachKey}`).once('value').then(coachSnap => {
+          db.ref(`coaches/${ownerUid}`).once('value').then(coachSnap => {
             const coachData = coachSnap.val() || {};
             if (coachData.lastSessionId === sessionId) {
-              return db.ref(`coaches/${coachKey}`).update({
+              return db.ref(`coaches/${ownerUid}`).update({
                 lastSessionId: null,
                 lastSessionCode: null
               });
@@ -553,10 +817,6 @@ async function cleanupExpiredSessions() {
   } catch (err) {
     console.error('Cleanup expired sessions error:', err);
   }
-}
-
-function emailToKey(email) {
-  return email.trim().toLowerCase().replace(/\./g, ",");
 }
 
 function generateSessionCode(length = 5) {
@@ -583,13 +843,22 @@ async function generateUniqueSessionCode() {
   return code;
 }
 
-function openCoachSession(sessionId, rawEmail, coachKey, sessionCode = '') {
+function openCoachSession(sessionId, sessionCode = '') {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    updateStatus('Koučská session vyžaduje přihlášeného uživatele.', true);
+    showCoach();
+    return;
+  }
+
+  const rawEmail = (user.email || coachEmailEl.value || '').trim().toLowerCase();
+
+  clearSessionContext();
 
   localStorage.setItem('coachingSessionId', sessionId);
-  localStorage.setItem('sessionCode', sessionCode);
+  setCurrentSessionCode(sessionCode);
   localStorage.setItem('coachEmail', rawEmail);
-  localStorage.setItem('coachKey', coachKey);
-  
+  localStorage.setItem('coachUid', user.uid);
 
   localStorage.setItem('userRole', 'coach');
 
@@ -598,11 +867,10 @@ function openCoachSession(sessionId, rawEmail, coachKey, sessionCode = '') {
 
 function openClientSession(sessionId, sessionCode = '') {
 
-  localStorage.setItem('coachingSessionId', sessionId);
-  localStorage.setItem('sessionCode', sessionCode);
+  clearSessionContext();
 
-  localStorage.removeItem('coachEmail');
-  localStorage.removeItem('coachKey');
+  localStorage.setItem('coachingSessionId', sessionId);
+  setCurrentSessionCode(sessionCode);
 
   localStorage.setItem('userRole', 'client');
 
@@ -610,50 +878,71 @@ function openClientSession(sessionId, sessionCode = '') {
 }
       
       function copyClientLink() {
-          const sessionCode = localStorage.getItem('sessionCode');
+          const sessionCode = getCurrentSessionCode();
 
           if (!sessionCode) {
           updateStatus('Session nenalezena.', true);
           return;
         }
 
-          const baseUrl = window.location.href.replace(/[^/]*$/, 'index.html').split('?')[0];
-
-        const link = `${baseUrl}?code=${encodeURIComponent(sessionCode)}`;
+        const link = buildClientInviteLink(sessionCode);
 
         navigator.clipboard.writeText(link)
           .then(() => updateStatus('Odkaz zkopírován.'))
           .catch(() => updateStatus('Nepodařilo se zkopírovat odkaz.', true));
       }
 
-async function createNewSessionForCoach(rawEmail, coachKey) {
+async function createNewSessionForCoach() {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    throw new Error('Kouč není přihlášen. Nelze vytvořit session.');
+  }
+
+  const rawEmail = (user.email || coachEmailEl.value || '').trim().toLowerCase();
+  const ownerUid = user.uid;
+
   const sessionRef = db.ref('sessions').push();
   const sessionId = sessionRef.key;
   const sessionCode = await generateUniqueSessionCode();
   const now = Date.now();
+  const title = `Session ${sessionCode}`;
 
   await sessionRef.set({
-    coachKey,
+    ownerUid,
     coachEmail: rawEmail,
     sessionCode,
+    title,
+    status: 'active',
+    endedAt: null,
+    archivedAt: null,
     createdAt: now,
     lastActivity: now,
-    state: {}
+    state: {},
+    ui: {}
   });
 
   await db.ref(`codes/${sessionCode}`).set({
     sessionId,
-    coachKey
+    ownerUid,
+    createdAt: now
   });
 
-  await db.ref(`coaches/${coachKey}`).update({
+  await db.ref(`coaches/${ownerUid}`).update({
     email: rawEmail,
     lastSessionId: sessionId,
     lastSessionCode: sessionCode
   });
 
+  await db.ref(`coaches/${ownerUid}/sessions/${sessionId}`).set({
+    sessionCode,
+    status: 'active',
+    title,
+    createdAt: now,
+    lastActivity: now
+  });
+
   sessionCodeText.textContent = sessionCode;
-  localStorage.setItem('sessionCode', sessionCode);
+  setCurrentSessionCode(sessionCode);
   sessionCodeBox.style.display = 'block';
   coachChoiceBox.style.display = 'none';
 
@@ -670,8 +959,10 @@ async function createNewSessionForCoach(rawEmail, coachKey) {
   };
 
   openCreatedSessionBtn.onclick = () => {
-  openCoachSession(sessionId, rawEmail, coachKey, sessionCode);
+  openCoachSession(sessionId, sessionCode);
 };
+
+  await loadCoachSessionsOverview();
 }
 
       async function loginCoach() {
@@ -752,9 +1043,8 @@ async function createNewSessionForCoach(rawEmail, coachKey) {
         try {
           await auth.signOut();
 
-          // vyčisti localStorage (UX)
-          localStorage.removeItem('coachingSessionId');
-          localStorage.removeItem('userRole');
+          // vyčisti lokální session kontext
+          clearSessionContext();
 
           updateStatus('Odhlášeno.');
 
@@ -768,12 +1058,12 @@ async function createNewSessionForCoach(rawEmail, coachKey) {
       async function continueAsCoach() {
         const user = auth.currentUser;
 
-        if (!user || !user.email) {
+        if (!user?.uid) {
           updateStatus('Kouč není přihlášen.', true);
           return;
         }
 
-        coachEmailEl.value = user.email;
+        coachEmailEl.value = user.email || coachEmailEl.value;
         coachAuthBox.style.display = 'none';
         coachChoiceBox.style.display = 'block';
         logoutBtn.style.display = 'inline-flex';
@@ -782,9 +1072,14 @@ async function createNewSessionForCoach(rawEmail, coachKey) {
       }
       
 async function joinCoachSession() {
-  const rawEmail = coachEmailEl.value.trim().toLowerCase();
-  const coachKey = emailToKey(rawEmail);
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    updateStatus('Kouč není přihlášen.', true);
+    return;
+  }
 
+  const rawEmail = (user.email || coachEmailEl.value || '').trim().toLowerCase();
+  const coachUid = user.uid;
   if (!rawEmail) {
     coachEmailEl.focus();
     updateStatus('Zadej e-mail.', true);
@@ -795,8 +1090,45 @@ async function joinCoachSession() {
   coachChoiceBox.style.display = 'none';
 
   try {
-    const coachSnapshot = await db.ref(`coaches/${coachKey}`).once('value');
-    const coachData = coachSnapshot.val();
+    let coachSnapshot = await db.ref(`coaches/${coachUid}`).once('value');
+    let coachData = coachSnapshot.val() || null;
+
+    let resolvedLastSessionCode = (coachData?.lastSessionCode || '').trim().toUpperCase();
+
+    if (coachData?.lastSessionId) {
+      const lastSessionSnapshot = await db.ref(`sessions/${coachData.lastSessionId}`).once('value');
+
+      if (!lastSessionSnapshot.exists()) {
+        await db.ref(`coaches/${coachUid}`).update({
+          email: rawEmail,
+          lastSessionId: null,
+          lastSessionCode: null
+        });
+        coachData = null;
+      } else {
+        const lastSessionData = lastSessionSnapshot.val() || {};
+        const lastSessionStatus = String(lastSessionData.status || 'active').toLowerCase();
+
+        if (lastSessionStatus !== 'active') {
+          await db.ref(`coaches/${coachUid}`).update({
+            email: rawEmail,
+            lastSessionId: null,
+            lastSessionCode: null
+          });
+          coachData = null;
+        }
+
+        const codeFromSession = String(lastSessionData.sessionCode || '').trim().toUpperCase();
+        if (coachData && codeFromSession && codeFromSession !== resolvedLastSessionCode) {
+          resolvedLastSessionCode = codeFromSession;
+          await db.ref(`coaches/${coachUid}`).update({
+            email: rawEmail,
+            lastSessionCode: resolvedLastSessionCode
+          });
+          coachData.lastSessionCode = resolvedLastSessionCode;
+        }
+      }
+    }
 
     if (coachData?.lastSessionId) {
       coachChoiceInfo.textContent =
@@ -806,49 +1138,18 @@ async function joinCoachSession() {
 
       coachChoiceBox.style.display = 'block';
       updateStatus('Vyber, jak chceš pokračovat.');
+      await loadCoachSessionsOverview();
 
       continueLastSessionBtn.onclick = () => {
-  openCoachSession(
-    coachData.lastSessionId,
-    rawEmail,
-    coachKey,
-    coachData.lastSessionCode || ''
-  );
+  const lastCode = resolvedLastSessionCode;
+  if (lastCode) setCurrentSessionCode(lastCode);
+  openCoachSession(coachData.lastSessionId, lastCode);
 };
 
       createNewSessionBtn.onclick = async () => {
         updateStatus('Vytvářím novou session...');
         try {
-          await createNewSessionForCoach(rawEmail, coachKey);
-        } catch (e) {
-          updateStatus('Chyba při vytváření nové session: ' + e.message, true);
-        }
-      };
-
-      return;
-    }
-
-    const legacySnapshot = await db.ref(`sessions/${coachKey}`).once('value');
-
-    if (legacySnapshot.exists()) {
-      coachChoiceInfo.textContent = 'Nalezena starší session z původní verze aplikace.';
-      coachChoiceBox.style.display = 'block';
-      updateStatus('Vyber, jak chceš pokračovat.');
-
-      continueLastSessionBtn.onclick = async () => {
-  await db.ref(`coaches/${coachKey}`).update({
-    email: rawEmail,
-    lastSessionId: coachKey,
-    lastSessionCode: 'LEGACY'
-  });
-
-  openCoachSession(coachKey, rawEmail, coachKey, 'LEGACY');
-};
-
-      createNewSessionBtn.onclick = async () => {
-        updateStatus('Vytvářím novou session...');
-        try {
-          await createNewSessionForCoach(rawEmail, coachKey);
+          await createNewSessionForCoach();
         } catch (e) {
           updateStatus('Chyba při vytváření nové session: ' + e.message, true);
         }
@@ -858,7 +1159,8 @@ async function joinCoachSession() {
     }
 
     updateStatus('Zakládám první session...');
-    await createNewSessionForCoach(rawEmail, coachKey);
+  await createNewSessionForCoach();
+  await loadCoachSessionsOverview();
 
   } catch (e) {
     updateStatus('Chyba připojení: ' + e.message, true);
@@ -931,10 +1233,15 @@ async function joinCoachSession() {
         sessionCodeBox.style.display = 'none';
         statusEl.textContent = '';
 
-        clientCodeEl.value = codeFromUrl.toUpperCase();
+        const normalizedCode = codeFromUrl.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+        clientCodeEl.value = normalizedCode;
+        clientCodeEl.readOnly = true;
+        clientCodeEl.disabled = true;
+        clientJoinBtn.disabled = true;
+        updateStatus('Připojuji klienta přes odkaz...');
 
         setTimeout(() => {
-          joinClientSession();
+          joinClientSession(normalizedCode);
         }, 100);
       }
       
@@ -945,8 +1252,47 @@ async function joinCoachSession() {
     logoutBtn.addEventListener('click', logoutCoach);
     copyLinkBtn.addEventListener('click', copyClientLink);
 
-    async function joinClientSession() {
-  const code = clientCodeEl.value.trim().toUpperCase();
+    if (sessionsOverviewListEl) {
+      sessionsOverviewListEl.addEventListener('click', async (event) => {
+        const btn = event.target.closest('button[data-session-action]');
+        if (!btn) return;
+
+        const action = btn.dataset.sessionAction;
+        const targetSessionId = String(btn.dataset.sessionId || '').trim();
+        const targetSessionCode = String(btn.dataset.sessionCode || '').trim().toUpperCase();
+        if (!targetSessionId) return;
+
+        if (action === 'open') {
+          openCoachSession(targetSessionId, targetSessionCode);
+          return;
+        }
+
+        if (action === 'duplicate') {
+          try {
+            updateStatus('Duplikuji session…');
+            const duplicated = await duplicateSessionForCoach(targetSessionId);
+            updateStatus(`Session duplikována (${duplicated.sessionCode}).`);
+            await loadCoachSessionsOverview();
+          } catch (err) {
+            updateStatus('Duplikace session selhala: ' + (err?.message || 'neznámá chyba'), true);
+          }
+          return;
+        }
+
+        if (action === 'export') {
+          try {
+            updateStatus('Připravuji export session…');
+            await exportSessionById(targetSessionId);
+            updateStatus('Export session je připraven.');
+          } catch (err) {
+            updateStatus('Export session selhal: ' + (err?.message || 'neznámá chyba'), true);
+          }
+        }
+      });
+    }
+
+    async function joinClientSession(forcedCode = '') {
+  const code = (forcedCode || clientCodeEl.value).trim().toUpperCase();
 
   if (!code) {
     clientCodeEl.focus();
@@ -978,6 +1324,16 @@ async function joinCoachSession() {
       return;
     }
 
+    let clientUser = auth.currentUser;
+    if (!clientUser) {
+      const credential = await auth.signInAnonymously();
+      clientUser = credential?.user || null;
+    }
+
+    if (!clientUser?.uid) {
+      throw new Error('Nepodařilo se ověřit klienta.');
+    }
+
     const sessionSnapshot = await db.ref(`sessions/${sessionId}`).once('value');
 
     if (!sessionSnapshot.exists()) {
@@ -985,7 +1341,21 @@ async function joinCoachSession() {
       return;
     }
 
+    const sessionData = sessionSnapshot.val() || {};
+    const sessionStatus = String(sessionData.status || 'active').toLowerCase();
+    if (sessionStatus !== 'active') {
+      updateStatus('Tato session už byla ukončena. Požádej kouče o nový kód.', true);
+      return;
+    }
+
+    const now = Date.now();
+    await db.ref(`sessionClients/${sessionId}/${clientUser.uid}`).set({
+      sessionCode: code,
+      createdAt: now
+    });
+
     updateStatus('Session nalezena. Připojuji klienta...');
+    setCurrentSessionCode(code);
 
     setTimeout(() => {
       openClientSession(sessionId, code);
@@ -1084,6 +1454,7 @@ function animateLogoTransition() {
 }
 
       autoJoinClientFromLink();
+      consumeEntryReasonStatus();
 
   </script>
 </body>
