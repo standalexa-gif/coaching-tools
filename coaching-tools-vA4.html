@@ -100,6 +100,17 @@ html[data-theme="light"] .ct-build-badge{
     .btn:hover { border-color:#3a475e; transform:translateY(-1px) scale(1.01) }
     .btn.pill { border-radius:999px }
 
+    .modal-backdrop { position:fixed; inset:0; background:rgba(2,6,23,.68); backdrop-filter:blur(4px); z-index:220; display:none; align-items:center; justify-content:center; padding:16px }
+    .modal-backdrop.show { display:flex }
+    .modal-card { width:min(520px, 100%); border:1px solid #243042; border-radius:14px; background:linear-gradient(180deg, rgba(17,24,39,.98), rgba(15,23,42,.98)); box-shadow:0 22px 48px rgba(2,6,23,.5); padding:16px; display:grid; gap:10px }
+    .modal-title { margin:0; font-size:20px; line-height:1.25 }
+    .modal-text { margin:0; color:#cbd5e1; font-size:14px; line-height:1.5 }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-top:4px }
+    .modal-btn { border:none; padding:9px 13px; border-radius:9px; cursor:pointer; font-weight:700; font-size:14px }
+    .modal-btn.cancel { background:#334155; color:#e5e7eb }
+    .modal-btn.confirm { background:#0f766e; color:white }
+    .modal-btn.confirm.danger { background:#dc2626 }
+
     main { min-height:calc(100vh - 70px) }
     .landing { max-width:1100px; margin:24px auto; padding:0 16px; opacity:1; transform:translateY(0); transition:opacity .22s ease, transform .22s ease }
     .landing.hide { opacity:0; transform:translateY(6px); pointer-events:none }
@@ -123,7 +134,7 @@ html[data-theme="light"] .ct-build-badge{
     .session-actions #copyClientLinkBtn { background:#1d4ed8; border-color:#60a5fa }
     .session-actions #resetAppBtn { background:#e74c3c; margin-left:auto }
     @media (max-width:820px){ .session-shell{ padding:11px; gap:10px } .session-meta{ grid-template-columns:1fr; gap:7px } .session-presence{ gap:6px } .session-actions{ gap:7px } .session-actions #resetAppBtn{ margin-left:0 } }
-    @media (max-width:640px){ .session-shell{ padding:10px } .session-actions button{ width:100%; justify-content:center; display:flex } .presence-chip{ padding:4px 9px } }
+    @media (max-width:640px){ .right{ width:100%; justify-content:flex-end; flex-wrap:wrap } .right .btn{ font-size:12px; padding:7px 9px } .session-shell{ padding:10px } .session-actions button{ width:100%; justify-content:center; display:flex } .presence-chip{ padding:4px 9px } }
     .grid { display:grid; gap:14px; grid-template-columns:repeat(5, minmax(160px,1fr)) }
     @media (max-width:1000px){ .grid{ grid-template-columns:repeat(3,minmax(160px,1fr)) } }
     @media (max-width:640px){ .grid{ grid-template-columns:repeat(2,minmax(140px,1fr)) } }
@@ -187,8 +198,10 @@ html[data-theme="light"] .ct-build-badge{
 </div>
 <div class="right">
 <button class="btn pill" id="themeBtn" onclick="toggleTheme()" title="Přepnout téma">🌙 Tmavé</button>
+<button class="btn" id="feedbackBtn" onclick="openFeedbackEmail()">💬 Nahlásit problém / návrh</button>
+<button class="btn" id="aboutAppBtn" onclick="openAboutPage()">O aplikaci</button>
 <button class="btn" id="homeBtn" onclick="goHome()" style="display:none">← Zpět na menu</button>
-<button class="btn" id="fsToggleBtn" style="display:none" title="Celá obrazovka">🔳 Celá obrazovka</button>
+<button class="btn" id="fsToggleBtn" style="display:inline-block" title="Celá obrazovka">🔳 Celá obrazovka</button>
 </div>
 </header>
 <main class="landing" id="landing">
@@ -259,6 +272,18 @@ Doporučené uzavření setkání: závazek, metrika posunu a datum další kont
 <iframe id="appFrame" title="Aplikace"></iframe>
 </div>
 </main>
+
+<div aria-hidden="true" class="modal-backdrop" id="confirmModal" role="dialog">
+  <div class="modal-card" role="document">
+    <h2 class="modal-title" id="confirmModalTitle">Potvrzení</h2>
+    <p class="modal-text" id="confirmModalText"></p>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="confirmModalCancelBtn" type="button">Zrušit</button>
+      <button class="modal-btn confirm" id="confirmModalConfirmBtn" type="button">Potvrdit</button>
+    </div>
+  </div>
+</div>
+
 <div id="tt"></div>
 <div class="err" id="err" style="display:none"></div>
 <script>
@@ -582,7 +607,7 @@ function updateRecoveryState(appKey) {
   }
 }
 
-function offerRecoveryResume() {
+async function offerRecoveryResume() {
   try {
     if (sessionStorage.getItem(RECOVERY_ASKED_KEY) === '1') return;
     sessionStorage.setItem(RECOVERY_ASKED_KEY, '1');
@@ -596,7 +621,12 @@ function offerRecoveryResume() {
     if (ageMs > (12 * 60 * 60 * 1000)) return;
     if (currentAppKey) return;
 
-    const ok = confirm('Našli jsme rozpracovanou session. Chceš obnovit poslední otevřený nástroj?');
+    const ok = await showConfirmModal({
+      title: 'Obnovit rozpracovanou session?',
+      message: 'Našli jsme poslední otevřený nástroj z minulé práce.',
+      confirmText: 'Obnovit',
+      cancelText: 'Nechat být'
+    });
     if (!ok) return;
     if (typeof window.openApp === 'function') {
       window.openApp(parsed.appKey);
@@ -618,7 +648,12 @@ async function restoreLastSnapshotForCurrentApp() {
     return;
   }
 
-  const confirmed = confirm('Obnovit poslední uloženou verzi tohoto nástroje?');
+  const confirmed = await showConfirmModal({
+    title: 'Obnovit poslední verzi?',
+    message: 'Nástroj se přepne na poslední uložený stav této metody.',
+    confirmText: 'Obnovit verzi',
+    cancelText: 'Zrušit'
+  });
   if (!confirmed) return;
 
   const restoredState = {
@@ -1124,6 +1159,68 @@ function exportWholeSessionPdf() {
   setTimeout(() => win.print(), 320);
 }
 
+function openFeedbackEmail() {
+  const subject = encodeURIComponent('Coaching Tools - problem nebo navrh');
+  window.location.href = `mailto:slexa@csas.cz?subject=${subject}`;
+}
+
+function openAboutPage() {
+  window.open('about.html', '_blank', 'noopener');
+}
+
+function showConfirmModal(options = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const textEl = document.getElementById('confirmModalText');
+    const cancelBtn = document.getElementById('confirmModalCancelBtn');
+    const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+    if (!modal || !titleEl || !textEl || !cancelBtn || !confirmBtn) {
+      console.warn('Confirm modal není dostupný. Akce byla preventivně zrušena.');
+      resolve(false);
+      return;
+    }
+
+    const title = String(options.title || 'Potvrzení');
+    const message = String(options.message || 'Opravdu chceš pokračovat?');
+    const confirmText = String(options.confirmText || 'Potvrdit');
+    const cancelText = String(options.cancelText || 'Zrušit');
+    const danger = Boolean(options.danger);
+
+    titleEl.textContent = title;
+    textEl.textContent = message;
+    confirmBtn.textContent = confirmText;
+    cancelBtn.textContent = cancelText;
+    confirmBtn.classList.toggle('danger', danger);
+
+    const finish = (result) => {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+      modal.removeEventListener('click', onBackdropClick);
+      document.removeEventListener('keydown', onEscClose);
+      resolve(result);
+    };
+
+    const onBackdropClick = (event) => {
+      if (event.target === modal) finish(false);
+    };
+
+    const onEscClose = (event) => {
+      if (event.key === 'Escape') finish(false);
+    };
+
+    cancelBtn.onclick = () => finish(false);
+    confirmBtn.onclick = () => finish(true);
+
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    modal.addEventListener('click', onBackdropClick);
+    document.addEventListener('keydown', onEscClose);
+
+    setTimeout(() => confirmBtn.focus(), 0);
+  });
+}
+
 // Ukončení session
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('resetAppBtn');
@@ -1154,8 +1251,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (String(localStorage.getItem('userRole') || '').toLowerCase() !== 'coach') {
       duplicateBtn.style.display = 'none';
     } else {
-      duplicateBtn.addEventListener('click', () => {
-        const confirmed = confirm('Vytvořit duplikát aktuální session a přepnout se do něj?');
+      duplicateBtn.addEventListener('click', async () => {
+        const confirmed = await showConfirmModal({
+          title: 'Vytvořit kopii session?',
+          message: 'Založí se nový kód session a okamžitě se do něj přepneš.',
+          confirmText: 'Vytvořit kopii',
+          cancelText: 'Zrušit'
+        });
         if (!confirmed) return;
         duplicateCurrentSession();
       });
@@ -1177,7 +1279,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!btn) return;
 
   btn.addEventListener('click', async () => {
-    const confirmEnd = confirm("Opravdu chceš ukončit session?");
+    const confirmEnd = await showConfirmModal({
+      title: 'Opravdu ukončit session?',
+      message: 'Klient už se do ní znovu nepřipojí.',
+      confirmText: 'Ukončit session',
+      cancelText: 'Zrušit',
+      danger: true
+    });
     if (!confirmEnd) return;
 
     if (String(localStorage.getItem('userRole') || '').toLowerCase() === 'coach') {

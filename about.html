@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>O aplikaci | Coaching Tools</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111827;
+      --text:#e5e7eb;
+      --muted:#9aa4b2;
+      --border:#253046;
+      --accent:#60a5fa;
+    }
+
+    *{ box-sizing:border-box; }
+
+    html, body{
+      margin:0;
+      min-height:100%;
+      background:radial-gradient(1200px 620px at 10% -10%, rgba(96,165,250,.12), transparent 55%), var(--bg);
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+
+    .page{
+      width:min(920px, 100%);
+      margin:0 auto;
+      padding:28px 16px 40px;
+    }
+
+    .top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:18px;
+      flex-wrap:wrap;
+    }
+
+    .title{
+      margin:0;
+      font-size:34px;
+      line-height:1.1;
+      letter-spacing:-0.02em;
+    }
+
+    .lead{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+    }
+
+    .btn{
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--panel);
+      color:var(--text);
+      text-decoration:none;
+      font-weight:700;
+      font-size:14px;
+      display:inline-block;
+    }
+
+    .grid{
+      margin-top:20px;
+      display:grid;
+      gap:12px;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+
+    .card{
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      padding:14px;
+    }
+
+    .card h2{
+      margin:0 0 8px;
+      font-size:18px;
+      color:#eef2ff;
+    }
+
+    .card p{
+      margin:0;
+      color:#d1d5db;
+      line-height:1.6;
+      font-size:14px;
+    }
+
+    .contact{
+      margin-top:16px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:var(--panel);
+      padding:14px;
+    }
+
+    .contact strong{
+      color:#eef2ff;
+    }
+
+    .contact a{
+      color:var(--accent);
+      text-decoration:none;
+      font-weight:700;
+    }
+
+    @media (max-width:720px){
+      .title{ font-size:28px; }
+      .grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="top">
+      <div>
+        <h1 class="title">Coaching Tools</h1>
+        <p class="lead">Jednoduché informace o tom, co aplikace dělá a jak pracuje s daty.</p>
+      </div>
+      <a class="btn" href="index.html">← Zpět</a>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Co aplikace dělá</h2>
+        <p>Aplikace propojuje kouče a klienta do jedné sdílené session. Oba vidí stejná data v reálném čase a mohou společně pracovat v metodách.</p>
+      </section>
+
+      <section class="card">
+        <h2>Jak funguje klientský odkaz</h2>
+        <p>Kouč vytvoří session a sdílí klientovi kód nebo odkaz. Klient se připojí přes vstupní stránku a otevře stejný prostor práce jako kouč.</p>
+      </section>
+
+      <section class="card">
+        <h2>Jak se ukládají data</h2>
+        <p>Data session se ukládají do Firebase Realtime Database pod konkrétním kódem session. Ukládá se průběžný stav metod a metadata session (např. poslední aktivita).</p>
+      </section>
+
+      <section class="card">
+        <h2>Bezpečnost a přístup</h2>
+        <p>Session je dostupná přes unikátní kód. Po ukončení session se klient už znovu nepřipojí. Přístupové chování je řízené databázovými pravidly.</p>
+      </section>
+
+      <section class="card">
+        <h2>Zabezpečení dat</h2>
+        <p>Data jsou přenášena přes zabezpečené HTTPS spojení a ukládána ve Firebase Realtime Database. Přístup k session je omezen pomocí autentizace a bezpečnostních pravidel databáze podle role uživatele.</p>
+        <p>Kouč má přístup pouze ke svým session. Klient nepotřebuje účet a do konkrétní session se připojuje pouze prostřednictvím odkazu nebo kódu od kouče. Každá session je oddělena vlastním identifikátorem a po jejím ukončení je další klientský vstup zablokován.</p>
+        <p>Aplikace není určena pro ukládání citlivých osobních údajů, zdravotních informací, rodných čísel, přístupových údajů ani jiných dat, která nejsou nezbytná pro průběh koučovací session.</p>
+      </section>
+    </div>
+
+    <section class="contact">
+      <strong>Kontakt</strong><br/>
+      Dotazy, nápady nebo hlášení problému: <a href="mailto:slexa@csas.cz?subject=Coaching%20Tools%20-%20problem%20nebo%20navrh">slexa@csas.cz</a>
+    </section>
+  </div>
+</body>
+</html>
